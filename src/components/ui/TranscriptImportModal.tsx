@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback } from 'react'
 import { Upload, FileText, X, Loader2, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
 import { importTranscript, type ImportResult } from '../../lib/transcriptImport'
+import type { LLMConfig } from '../../lib/llmClient'
 
 interface Props {
-  apiKey: string
+  llmConfig: LLMConfig
   existingAnswers: Record<string, string>
   onImport: (answers: Record<string, string>, confidence: Record<string, 'high' | 'medium' | 'low' | 'none'>) => void
   onClose: () => void
@@ -18,7 +19,7 @@ const confidenceConfig = {
   none:   { label: 'Not found',       color: 'text-muted',   bg: 'bg-border/20 border-border' },
 }
 
-export function TranscriptImportModal({ apiKey, existingAnswers, onImport, onClose }: Props) {
+export function TranscriptImportModal({ llmConfig, existingAnswers, onImport, onClose }: Props) {
   const [step, setStep] = useState<Step>('upload')
   const [transcript, setTranscript] = useState('')
   const [fileName, setFileName] = useState('')
@@ -48,7 +49,7 @@ export function TranscriptImportModal({ apiKey, existingAnswers, onImport, onClo
     setStep('processing')
     setError('')
     try {
-      const res = await importTranscript(apiKey, transcript)
+      const res = await importTranscript(llmConfig, transcript)
       setResult(res)
       setStep('review')
     } catch (e: any) {
@@ -161,9 +162,9 @@ export function TranscriptImportModal({ apiKey, existingAnswers, onImport, onClo
                 </div>
               )}
 
-              {!apiKey && (
+              {llmConfig.provider === 'anthropic' && !llmConfig.anthropicKey && (
                 <div className="p-3 bg-caution/10 border border-caution/30 rounded-xl text-sm text-caution">
-                  Add your Anthropic API key in the AI Verdict tab to enable transcript import.
+                  Configure your LLM provider in the AI Verdict tab first.
                 </div>
               )}
             </>
@@ -290,7 +291,7 @@ export function TranscriptImportModal({ apiKey, existingAnswers, onImport, onClo
             <>
               <button
                 onClick={runImport}
-                disabled={!transcript.trim() || !apiKey}
+                disabled={!transcript.trim()}
                 className="flex-1 flex items-center justify-center gap-2 bg-accent hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
               >
                 <Sparkles size={15} />

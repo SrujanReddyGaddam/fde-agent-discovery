@@ -1,11 +1,11 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { callLLM, extractJSON, type LLMConfig } from './llmClient'
 import { sections } from '../data/inquiryGuide'
 import { redFlags } from '../data/redFlags'
 import { rubricDimensions, MAX_RUBRIC_SCORE } from '../data/rubric'
 import { scorecardDomains } from '../data/scorecard'
 
 interface VerdictInput {
-  apiKey: string
+  llmConfig: LLMConfig
   meta: { customerName: string; useCaseName: string; date: string; fde: string; useCaseSummary: string }
   answers: Record<string, string>
   triggeredFlags: string[]
@@ -29,7 +29,6 @@ function buildPrompt(input: VerdictInput): string {
 
   const triggered = redFlags.filter(f => triggeredFlags.includes(f.id))
   const criticalFlags = triggered.filter(f => f.severity === 'critical')
-
   const rubricTotal = rubricDimensions.reduce((sum, d) => sum + (rubricScores[d.id] || 0) * d.weight, 0)
   const rubricPct = Math.round((rubricTotal / MAX_RUBRIC_SCORE) * 100)
 
@@ -49,8 +48,8 @@ Your job is to make a clear gate decision and provide a sharp, honest assessment
 
 ## Customer Context
 - Customer: ${meta.customerName || 'Unknown'}
-- Use Case Name: ${meta.useCaseName || 'Not named'}
-- Use Case Summary: ${meta.useCaseSummary || 'Not summarized'}
+- Use Case: ${meta.useCaseName || 'Not named'}
+- Summary: ${meta.useCaseSummary || 'Not summarized'}
 - Date: ${meta.date}
 - FDE: ${meta.fde || 'Unknown'}
 
@@ -66,52 +65,29 @@ ${rubricDimensions.map(d => `- ${d.label}: ${rubricScores[d.id] || 0}/5 (weight:
 ## FDE Agentic Scorecard
 ${scorecardSummary}
 
----
-
 Based on all of the above, respond with a JSON object with this exact shape:
-
 {
-  "gate": "PUSH TO PROD" | "CONDITIONAL" | "PAUSE" | "NO-GO",
+  "gate": "PUSH TO PROD" or "CONDITIONAL" or "PAUSE" or "NO-GO",
   "confidence": <number 0-100>,
-  "summary": "<2-3 sentence sharp executive summary of your verdict>",
-  "blockers": [
-    { "title": "<short blocker title>", "detail": "<1-2 sentence explanation>" }
-  ],
-  "signals": [
-    { "title": "<short signal title>", "detail": "<1-2 sentence explanation>" }
-  ],
-  "nextSteps": ["<actionable next step>", "<actionable next step>", "<actionable next step>"]
+  "summary": "<2-3 sentence sharp executive summary>",
+  "blockers": [{"title": "<short>", "detail": "<1-2 sentences>"}],
+  "signals": [{"title": "<short>", "detail": "<1-2 sentences>"}],
+  "nextSteps": ["<action>", "<action>", "<action>"]
 }
 
 Gate criteria:
-- PUSH TO PROD: ≥3 scorecard domains at Baseline+, rubric ≥60%, ≤2 critical red flags, clear exec sponsor + data access + operational owner
-- CONDITIONAL: Viable path exists but 1-2 critical gaps need resolution in next 2 weeks before build begins
-- PAUSE: Significant structural gaps — not enough data, no sponsor, unclear value — revisit in 4-6 weeks when gaps are resolved
-- NO-GO: Fundamental disqualifiers present (economics don't work, liability unresolvable, no business case)
+- PUSH TO PROD: strong economics, stakeholder triad present, data accessible, ≤2 critical red flags
+- CONDITIONAL: viable path but 1-2 critical gaps need resolution before build begins
+- PAUSE: significant structural gaps, revisit in 4-6 weeks
+- NO-GO: fundamental disqualifiers — economics don't work, liability unresolvable
 
-Be direct. Don't hedge. Surface the single most important risk. Return only valid JSON.`
+Be direct. Return only valid JSON, no markdown fences.`
 }
 
 export async function generateVerdict(input: VerdictInput): Promise<VerdictResult> {
-  const client = new Anthropic({
-    apiKey: input.apiKey,
-    dangerouslyAllowBrowser: true,
-  })
-
   const prompt = buildPrompt(input)
-
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  const raw = message.content[0].type === 'text' ? message.content[0].text : ''
-
-  const jsonMatch = raw.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('AI response did not contain valid JSON')
-
-  const parsed = JSON.parse(jsonMatch[0])
+  const raw = await callLLM(input.llmConfig, [{ role: 'user', content: prompt }], 1024)
+  const parsed = extractJSON(raw) as any
 
   return {
     gate: parsed.gate,

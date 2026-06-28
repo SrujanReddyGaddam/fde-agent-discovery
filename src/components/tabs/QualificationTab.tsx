@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle, MessageSquare, M
 import { sections } from '../../data/inquiryGuide'
 import { ScriptToggle } from '../ui/ScriptToggle'
 import { TranscriptImportModal } from '../ui/TranscriptImportModal'
+import type { LLMConfig } from '../../lib/llmClient'
 
 interface Props {
   answers: Record<string, string>
@@ -11,10 +12,10 @@ interface Props {
   setConfidence: (c: Record<string, 'high' | 'medium' | 'low' | 'none'>) => void
   scriptsOpen: boolean
   setScriptsOpen: (v: boolean) => void
-  apiKey: string
+  llmConfig: LLMConfig
 }
 
-export function QualificationTab({ answers, setAnswers, confidence, setConfidence, scriptsOpen, setScriptsOpen, apiKey }: Props) {
+export function QualificationTab({ answers, setAnswers, confidence, setConfidence, scriptsOpen, setScriptsOpen, llmConfig }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ A: true })
 
   const [showImport, setShowImport] = useState(false)
@@ -38,7 +39,7 @@ export function QualificationTab({ answers, setAnswers, confidence, setConfidenc
     <div className="space-y-3">
       {showImport && (
         <TranscriptImportModal
-          apiKey={apiKey}
+          llmConfig={llmConfig}
           existingAnswers={answers}
           onImport={(merged, conf) => { setAnswers(merged); setConfidence(conf) }}
           onClose={() => setShowImport(false)}

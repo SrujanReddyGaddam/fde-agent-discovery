@@ -8,6 +8,7 @@ import { MissionControlTab } from './components/tabs/MissionControlTab'
 import { QualificationTab } from './components/tabs/QualificationTab'
 import { RedFlagsTab } from './components/tabs/RedFlagsTab'
 import { RubricTab } from './components/tabs/RubricTab'
+import type { LLMConfig } from './lib/llmClient'
 import { ScorecardTab } from './components/tabs/ScorecardTab'
 import { VerdictTab } from './components/tabs/VerdictTab'
 import { redFlags } from './data/redFlags'
@@ -59,7 +60,12 @@ function initSessions(): { sessions: Session[]; activeId: string } {
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme()
   const [activeTab, setActiveTab] = useState<Tab>('mission')
-  const [apiKey, setApiKey] = useLocalStorage<string>('fde-api-key', '')
+  const [llmConfig, setLLMConfig] = useLocalStorage<LLMConfig>('fde-llm-config', {
+    provider: 'anthropic',
+    anthropicKey: '',
+    localBaseUrl: 'http://localhost:1234/v1',
+    localModel: 'llama-3.2-11b-instruct',
+  })
   const [scriptsOpen, setScriptsOpen] = useLocalStorage<boolean>('fde-scripts-open', true)
   const [confidence, setConfidence] = useLocalStorage<Record<string, 'high' | 'medium' | 'low' | 'none'>>('fde-confidence', {})
 
@@ -365,11 +371,11 @@ export default function App() {
           <QualificationTab answers={answers} setAnswers={setAnswers}
             confidence={confidence} setConfidence={setConfidence}
             scriptsOpen={scriptsOpen} setScriptsOpen={setScriptsOpen}
-            apiKey={apiKey} />
+            llmConfig={llmConfig} />
         )}
         {activeTab === 'redflags' && (
           <RedFlagsTab triggeredFlags={triggeredFlags} setTriggeredFlags={setTriggeredFlags}
-            answers={answers} apiKey={apiKey} />
+            answers={answers} llmConfig={llmConfig} />
         )}
         {activeTab === 'rubric' && (
           <RubricTab scores={rubricScores} setScores={setRubricScores} />
@@ -381,7 +387,7 @@ export default function App() {
         {activeTab === 'verdict' && (
           <VerdictTab meta={meta} answers={answers} triggeredFlags={triggeredFlags}
             rubricScores={rubricScores} scorecardScores={scorecardScores} scorecardNotes={scorecardNotes}
-            apiKey={apiKey} setApiKey={setApiKey} verdict={verdict} setVerdict={setVerdict} />
+            llmConfig={llmConfig} setLLMConfig={setLLMConfig} verdict={verdict} setVerdict={setVerdict} />
         )}
       </main>
     </div>

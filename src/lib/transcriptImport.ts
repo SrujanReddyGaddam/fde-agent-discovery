@@ -1,11 +1,11 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { callLLM, extractJSON, type LLMConfig } from './llmClient'
 import { sections } from '../data/inquiryGuide'
 
 export interface ImportResult {
   answers: Record<string, string>
   confidence: Record<string, 'high' | 'medium' | 'low' | 'none'>
-  flaggedTopics: string[]   // topics mentioned but couldn't map to a specific question
-  coverage: number          // % of questions that got an answer
+  flaggedTopics: string[]
+  coverage: number
   raw: string
 }
 
@@ -16,76 +16,43 @@ function buildPrompt(transcript: string): string {
       section: s.label,
       question: q.question,
       goodSignal: q.goodSignal,
-      why: q.why,
     }))
   )
 
-  return `You are a senior FDE (Forward Deployed Engineer) at UiPath analyzing a discovery call transcript.
+  return `You are a senior FDE at UiPath analyzing a discovery call transcript. Extract answers to the qualification questions below.
 
-Your job is to extract answers to specific qualification questions from the transcript and populate a discovery questionnaire. Be rigorous — only populate a field if there is actual evidence in the transcript. Do NOT invent or infer beyond what was said.
+Only populate a field if there is actual evidence in the transcript. Do NOT invent or infer beyond what was said. Leave fields null if the topic was not discussed.
 
-## Discovery Questions to Answer
-
-${questionList.map(q => `**${q.id}** [${q.section}]
-Question: ${q.question}
-What a good answer looks like: ${q.goodSignal}`).join('\n\n')}
+## Questions
+${questionList.map(q => `${q.id} [${q.section}]: ${q.question}\nGood answer looks like: ${q.goodSignal}`).join('\n\n')}
 
 ## Transcript
-
 ${transcript}
 
----
-
-## Instructions
-
-For each question ID above, extract the most relevant answer from the transcript.
-
-Rules:
-- If the topic was clearly discussed, extract the key facts as 2-4 sentences in the FDE's voice (first person notes, not a quote)
-- If the topic was partially touched on, note what was said and what's still unclear
-- If the topic was NOT discussed at all, return null for that question — do not guess
-- Assign confidence: "high" (directly stated), "medium" (implied or partial), "low" (very thin evidence)
-- Flag any important topics from the transcript that don't map to a specific question
-
-Return ONLY a valid JSON object with this exact shape:
+Return ONLY valid JSON (no markdown fences):
 {
   "answers": {
-    "A1": "...",
-    "A2": null,
-    "B1": "...",
-    ...
+    "A1": "2-4 sentence summary in FDE note style",
+    "A2": null
   },
   "confidence": {
-    "A1": "high",
-    "B1": "medium",
-    ...
+    "A1": "high"
   },
-  "flaggedTopics": ["topic that came up but didn't fit a question", ...]
+  "flaggedTopics": ["topic mentioned but not mapped to a question"]
 }
 
-Only include question IDs that have actual content (non-null). Omit nulls from the answers object entirely.`
+Confidence levels: "high" = directly stated, "medium" = implied/partial, "low" = thin evidence.
+Omit null values from answers object entirely. Only include confidence entries for answered questions.`
 }
 
-export async function importTranscript(apiKey: string, transcript: string): Promise<ImportResult> {
-  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
-
+export async function importTranscript(llmConfig: LLMConfig, transcript: string): Promise<ImportResult> {
   const prompt = buildPrompt(transcript)
+  const raw = await callLLM(llmConfig, [{ role: 'user', content: prompt }], 4096)
+  const parsed = extractJSON(raw) as any
 
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  const raw = message.content[0].type === 'text' ? message.content[0].text : ''
-  const match = raw.match(/\{[\s\S]*\}/)
-  if (!match) throw new Error('AI response did not contain valid JSON')
-
-  const parsed = JSON.parse(match[0])
   const answers: Record<string, string> = parsed.answers || {}
   const confidence: Record<string, 'high' | 'medium' | 'low' | 'none'> = parsed.confidence || {}
   const flaggedTopics: string[] = parsed.flaggedTopics || []
-
   const totalQuestions = sections.reduce((sum, s) => sum + s.questions.length, 0)
   const coverage = Math.round((Object.keys(answers).length / totalQuestions) * 100)
 

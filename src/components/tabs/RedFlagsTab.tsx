@@ -3,12 +3,13 @@ import { AlertTriangle, ShieldAlert, AlertCircle, Flag, Sparkles } from 'lucide-
 import { redFlags } from '../../data/redFlags'
 import { autoDetectFlags } from '../../lib/autoDetectFlags'
 import { AutoDetectBanner } from '../ui/AutoDetectBanner'
+import type { LLMConfig } from '../../lib/llmClient'
 
 interface Props {
   triggeredFlags: string[]
   setTriggeredFlags: (flags: string[]) => void
   answers: Record<string, string>
-  apiKey: string
+  llmConfig: LLMConfig
 }
 
 const severityConfig = {
@@ -17,7 +18,7 @@ const severityConfig = {
   medium: { label: 'MEDIUM', icon: AlertCircle, color: 'text-orange-400', bg: 'bg-orange-400/5', border: 'border-orange-400/30', badgeColor: 'bg-orange-400/20 text-orange-400 border border-orange-400/40' },
 }
 
-export function RedFlagsTab({ triggeredFlags, setTriggeredFlags, answers, apiKey }: Props) {
+export function RedFlagsTab({ triggeredFlags, setTriggeredFlags, answers, llmConfig }: Props) {
   const [detectStatus, setDetectStatus] = useState<'idle' | 'scanning' | 'ready' | 'error'>('idle')
   const [suggested, setSuggested] = useState<string[]>([])
   const [reasoning, setReasoning] = useState('')
@@ -30,18 +31,20 @@ export function RedFlagsTab({ triggeredFlags, setTriggeredFlags, answers, apiKey
     }
   }
 
+  const isConfigured = llmConfig.provider === 'anthropic' ? !!llmConfig.anthropicKey : !!llmConfig.localBaseUrl
+
   const runDetection = useCallback(async () => {
-    if (!apiKey) return
+    if (!isConfigured) return
     setDetectStatus('scanning')
     try {
-      const result = await autoDetectFlags({ apiKey, answers, currentlyTriggered: triggeredFlags })
+      const result = await autoDetectFlags({ llmConfig, answers, currentlyTriggered: triggeredFlags })
       setSuggested(result.suggested)
       setReasoning(result.reasoning)
       setDetectStatus('ready')
     } catch {
       setDetectStatus('error')
     }
-  }, [apiKey, answers, triggeredFlags])
+  }, [llmConfig, isConfigured, answers, triggeredFlags])
 
   const acceptAll = () => {
     const newFlags = [...new Set([...triggeredFlags, ...suggested])]
@@ -92,7 +95,7 @@ export function RedFlagsTab({ triggeredFlags, setTriggeredFlags, answers, apiKey
           </div>
 
           {/* AI detect button */}
-          {apiKey && (
+          {isConfigured && (
             <button
               onClick={runDetection}
               disabled={detectStatus === 'scanning'}
@@ -121,9 +124,9 @@ export function RedFlagsTab({ triggeredFlags, setTriggeredFlags, answers, apiKey
         </div>
       )}
 
-      {!apiKey && (
+      {!isConfigured && (
         <div className="mb-4 px-4 py-3 bg-caution/5 border border-caution/20 rounded-xl text-xs text-caution">
-          Add your Anthropic API key in the AI Verdict tab to enable automatic red flag detection from your notes.
+          Configure your LLM provider in the AI Verdict tab to enable automatic red flag detection from your notes.
         </div>
       )}
 
