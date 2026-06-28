@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { LayoutDashboard, ClipboardList, Flag, BarChart3, Activity, Sparkles, User, Building2, Calendar, FileText, Layers, Sun, Moon } from 'lucide-react'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { useTheme } from './context/ThemeContext'
 import { SessionManager } from './components/ui/SessionManager'
+import { FolderStatus } from './components/ui/FolderStatus'
 import { MissionControlTab } from './components/tabs/MissionControlTab'
 import { QualificationTab } from './components/tabs/QualificationTab'
 import { RedFlagsTab } from './components/tabs/RedFlagsTab'
@@ -17,6 +18,10 @@ import {
   createSession, duplicateSession,
   type Session,
 } from './lib/sessionManager'
+import {
+  isSupported, pickFolder, getSavedHandle, clearSavedHandle,
+  writeSession, deleteSessionFile, loadSessionsFromFolder, getFolderName,
+} from './lib/fileStorage'
 
 type Tab = 'mission' | 'qualification' | 'redflags' | 'rubric' | 'scorecard' | 'verdict'
 
@@ -59,10 +64,35 @@ export default function App() {
 
   const [sessions, setSessions] = useState<Session[]>(() => initSessions().sessions)
   const [activeSessionId, setActiveSessionId] = useState<string>(() => initSessions().activeId)
+  const [folderHandle, setFolderHandle] = useState<FileSystemDirectoryHandle | null>(null)
+  const [folderName, setFolderName] = useState<string | null>(null)
+  const folderRef = useRef<FileSystemDirectoryHandle | null>(null)
+  folderRef.current = folderHandle
+
+  // On mount: restore saved folder handle if permission still valid
+  useEffect(() => {
+    if (!isSupported()) return
+    getSavedHandle().then(async handle => {
+      if (handle) {
+        setFolderHandle(handle)
+        setFolderName(await getFolderName(handle))
+        // Reload sessions from folder (may have files from another device/session)
+        const fileSessions = await loadSessionsFromFolder(handle)
+        if (fileSessions.length > 0) {
+          saveSessions(fileSessions)
+          setSessions(fileSessions)
+          const storedId = getActiveId()
+          const activeId = fileSessions.find(s => s.id === storedId)?.id ?? fileSessions[fileSessions.length - 1].id
+          setActiveSessionId(activeId)
+          setActiveId(activeId)
+        }
+      }
+    })
+  }, [])
 
   const activeSession = sessions.find(s => s.id === activeSessionId) ?? sessions[0]
 
-  // Auto-save session whenever it changes
+  // Auto-save to localStorage + file system whenever session changes
   const updateSession = useCallback((patch: Partial<Session>) => {
     setSessions(prev => {
       const next = prev.map(s =>
@@ -71,11 +101,16 @@ export default function App() {
           : s
       )
       saveSessions(next)
+      // Also write to file if folder connected
+      const updated = next.find(s => s.id === activeSessionId)
+      if (updated && folderRef.current) {
+        writeSession(folderRef.current, updated).catch(() => {})
+      }
       return next
     })
   }, [activeSessionId])
 
-  // Convenience setters that delegate to updateSession
+  // Convenience setters
   const setMeta = (meta: Session['meta']) => updateSession({ meta })
   const setAnswers = (answers: Session['answers']) => updateSession({ answers })
   const setTriggeredFlags = (triggeredFlags: Session['triggeredFlags']) => updateSession({ triggeredFlags })
@@ -83,6 +118,23 @@ export default function App() {
   const setScorecardScores = (scorecardScores: Session['scorecardScores']) => updateSession({ scorecardScores })
   const setScorecardNotes = (scorecardNotes: Session['scorecardNotes']) => updateSession({ scorecardNotes })
   const setVerdict = (verdict: Session['verdict']) => updateSession({ verdict })
+
+  const handleConnectFolder = async () => {
+    const handle = await pickFolder()
+    if (!handle) return
+    setFolderHandle(handle)
+    setFolderName(await getFolderName(handle))
+    // Write all existing sessions to the new folder
+    for (const s of sessions) {
+      await writeSession(handle, s).catch(() => {})
+    }
+  }
+
+  const handleDisconnectFolder = async () => {
+    await clearSavedHandle()
+    setFolderHandle(null)
+    setFolderName(null)
+  }
 
   const handleSwitchSession = (id: string) => {
     setActiveId(id)
@@ -94,6 +146,7 @@ export default function App() {
     const next = [...sessions, s]
     saveSessions(next)
     setSessions(next)
+    if (folderRef.current) writeSession(folderRef.current, s).catch(() => {})
     setActiveId(s.id)
     setActiveSessionId(s.id)
     setActiveTab('qualification')
@@ -104,14 +157,17 @@ export default function App() {
     const next = [...sessions, dup]
     saveSessions(next)
     setSessions(next)
+    if (folderRef.current) writeSession(folderRef.current, dup).catch(() => {})
     setActiveId(dup.id)
     setActiveSessionId(dup.id)
   }
 
   const handleDeleteSession = (id: string) => {
+    const session = sessions.find(s => s.id === id)
     const next = sessions.filter(s => s.id !== id)
     saveSessions(next)
     setSessions(next)
+    if (session && folderRef.current) deleteSessionFile(folderRef.current, session).catch(() => {})
     if (activeSessionId === id) {
       const newActive = next[next.length - 1]?.id ?? ''
       setActiveId(newActive)
@@ -142,8 +198,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* Session manager — centre */}
-            <div className="flex-1 flex justify-center">
+            {/* Session manager + folder status — centre */}
+            <div className="flex-1 flex items-center justify-center gap-3">
               <SessionManager
                 sessions={sessions}
                 activeId={activeSessionId}
@@ -152,6 +208,13 @@ export default function App() {
                 onDuplicate={handleDuplicateSession}
                 onDelete={handleDeleteSession}
               />
+              {isSupported() && (
+                <FolderStatus
+                  folderName={folderName}
+                  onConnect={handleConnectFolder}
+                  onDisconnect={handleDisconnectFolder}
+                />
+              )}
             </div>
 
             {/* Live stats + controls */}
