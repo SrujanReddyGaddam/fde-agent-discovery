@@ -6,7 +6,7 @@ import { generateMarkdown, downloadMarkdown } from '../../lib/exportMarkdown'
 import { GateBadge } from '../ui/GateBadge'
 
 interface Props {
-  meta: { customerName: string; date: string; fde: string; useCaseSummary: string }
+  meta: { customerName: string; useCaseName: string; date: string; fde: string; useCaseSummary: string }
   answers: Record<string, string>
   triggeredFlags: string[]
   rubricScores: Record<string, number>
@@ -52,7 +52,8 @@ export function VerdictTab({
         ? `**Gate Decision:** ${verdict.gate} (${verdict.confidence}% confidence)\n\n${verdict.summary}\n\n**Top Blockers:**\n${verdict.blockers.map(b => `- **${b.title}:** ${b.detail}`).join('\n')}\n\n**Positive Signals:**\n${verdict.signals.map(s => `- **${s.title}:** ${s.detail}`).join('\n')}\n\n**Recommended Next Steps:**\n${verdict.nextSteps.map(s => `- ${s}`).join('\n')}`
         : '',
     })
-    const filename = `FDE-Discovery-${(meta.customerName || 'customer').replace(/\s+/g, '-')}-${meta.date || 'undated'}.md`
+    const slug = [meta.customerName, meta.useCaseName].filter(Boolean).map(s => s.replace(/\s+/g, '-')).join('-') || 'discovery'
+    const filename = `FDE-${slug}-${meta.date || 'undated'}.md`
     downloadMarkdown(md, filename)
   }
 

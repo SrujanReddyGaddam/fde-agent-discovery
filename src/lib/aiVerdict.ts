@@ -6,7 +6,7 @@ import { scorecardDomains } from '../data/scorecard'
 
 interface VerdictInput {
   apiKey: string
-  meta: { customerName: string; date: string; fde: string; useCaseSummary: string }
+  meta: { customerName: string; useCaseName: string; date: string; fde: string; useCaseSummary: string }
   answers: Record<string, string>
   triggeredFlags: string[]
   rubricScores: Record<string, number>
@@ -49,7 +49,8 @@ Your job is to make a clear gate decision and provide a sharp, honest assessment
 
 ## Customer Context
 - Customer: ${meta.customerName || 'Unknown'}
-- Use Case: ${meta.useCaseSummary || 'Not summarized'}
+- Use Case Name: ${meta.useCaseName || 'Not named'}
+- Use Case Summary: ${meta.useCaseSummary || 'Not summarized'}
 - Date: ${meta.date}
 - FDE: ${meta.fde || 'Unknown'}
 

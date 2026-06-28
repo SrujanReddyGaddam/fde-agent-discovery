@@ -4,7 +4,7 @@ import { rubricDimensions, MAX_RUBRIC_SCORE } from '../data/rubric'
 import { scorecardDomains } from '../data/scorecard'
 
 interface ExportData {
-  meta: { customerName: string; date: string; fde: string; useCaseSummary: string }
+  meta: { customerName: string; useCaseName: string; date: string; fde: string; useCaseSummary: string }
   answers: Record<string, string>
   triggeredFlags: string[]
   rubricScores: Record<string, number>
@@ -25,11 +25,20 @@ export function generateMarkdown(data: ExportData): string {
   const { meta, answers, triggeredFlags, rubricScores, scorecardScores, scorecardNotes, verdictRaw } = data
   const lines: string[] = []
 
-  lines.push(`# FDE Agent Discovery — ${meta.customerName || 'Customer'}`)
+  const title = [meta.customerName, meta.useCaseName].filter(Boolean).join(' — ') || 'Discovery'
+  lines.push(`# FDE Agent Discovery — ${title}`)
   lines.push(``)
+  lines.push(`> **Customer:** ${meta.customerName || 'N/A'}  `)
+  lines.push(`> **Use Case:** ${meta.useCaseName || 'N/A'}  `)
   lines.push(`> **Date:** ${meta.date}  `)
   lines.push(`> **FDE:** ${meta.fde || 'N/A'}  `)
-  lines.push(`> **Use Case Summary:** ${meta.useCaseSummary || 'N/A'}`)
+  lines.push(``)
+  if (meta.useCaseSummary) {
+    lines.push(`### Use Case Summary`)
+    lines.push(``)
+    lines.push(meta.useCaseSummary)
+    lines.push(``)
+  }
   lines.push(``)
   lines.push(`---`)
   lines.push(``)

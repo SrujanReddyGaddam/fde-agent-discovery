@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, ClipboardList, Flag, BarChart3, Activity, Sparkles, User, Building2, Calendar, FileText, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Flag, BarChart3, Activity, Sparkles, User, Building2, Calendar, FileText, Layers, Sun, Moon } from 'lucide-react'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { useTheme } from './context/ThemeContext'
 import { MissionControlTab } from './components/tabs/MissionControlTab'
@@ -34,9 +34,10 @@ export default function App() {
   const [scorecardNotes, setScorecardNotes] = useLocalStorage<Record<string, string>>('fde-scorecard-notes', {})
   const [apiKey, setApiKey] = useLocalStorage<string>('fde-api-key', '')
   const [verdict, setVerdict] = useLocalStorage<VerdictResult | null>('fde-verdict', null)
-  const [meta, setMeta] = useLocalStorage<{ customerName: string; date: string; fde: string; useCaseSummary: string }>(
+  type MetaType = { customerName: string; useCaseName: string; date: string; fde: string; useCaseSummary: string }
+  const [meta, setMeta] = useLocalStorage<MetaType>(
     'fde-meta',
-    { customerName: '', date: new Date().toISOString().split('T')[0], fde: '', useCaseSummary: '' }
+    { customerName: '', useCaseName: '', date: new Date().toISOString().split('T')[0], fde: '', useCaseSummary: '' }
   )
 
   const criticalFlags = triggeredFlags.filter(id => redFlags.find(f => f.id === id)?.severity === 'critical').length
@@ -54,7 +55,7 @@ export default function App() {
     setScorecardScores({})
     setScorecardNotes({})
     setVerdict(null)
-    setMeta({ customerName: '', date: new Date().toISOString().split('T')[0], fde: '', useCaseSummary: '' })
+    setMeta({ customerName: '', useCaseName: '', date: new Date().toISOString().split('T')[0], fde: '', useCaseSummary: '' })
   }
 
   return (
@@ -130,47 +131,59 @@ export default function App() {
 
       {/* Meta bar */}
       <div className="border-b theme-border theme-meta">
-        <div className="max-w-6xl mx-auto px-6 py-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="flex items-center gap-2">
-              <Building2 size={14} className="text-muted shrink-0" />
+        <div className="max-w-6xl mx-auto px-6 py-2.5">
+          {/* Row 1 — compact fields */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 mb-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Building2 size={13} className="text-muted shrink-0" />
               <input
                 type="text"
                 placeholder="Customer name"
                 value={meta.customerName}
                 onChange={e => setMeta({ ...meta, customerName: e.target.value })}
-                className="flex-1 bg-transparent text-sm theme-text placeholder:text-slate-500 border-none outline-none"
+                className="flex-1 min-w-0 bg-transparent text-sm theme-text placeholder:text-slate-500 border-none outline-none"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <User size={14} className="text-muted shrink-0" />
+            <div className="flex items-center gap-2 min-w-0">
+              <Layers size={13} className="text-muted shrink-0" />
               <input
                 type="text"
-                placeholder="Your name (FDE)"
-                value={meta.fde}
-                onChange={e => setMeta({ ...meta, fde: e.target.value })}
-                className="flex-1 bg-transparent text-sm theme-text placeholder:text-slate-500 border-none outline-none"
+                placeholder="Use case name"
+                value={meta.useCaseName}
+                onChange={e => setMeta({ ...meta, useCaseName: e.target.value })}
+                className="flex-1 min-w-0 bg-transparent text-sm theme-text placeholder:text-slate-500 border-none outline-none"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Calendar size={14} className="text-muted shrink-0" />
+            <div className="flex items-center gap-2 min-w-0">
+              <User size={13} className="text-muted shrink-0" />
+              <input
+                type="text"
+                placeholder="FDE name"
+                value={meta.fde}
+                onChange={e => setMeta({ ...meta, fde: e.target.value })}
+                className="flex-1 min-w-0 bg-transparent text-sm theme-text placeholder:text-slate-500 border-none outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <Calendar size={13} className="text-muted shrink-0" />
               <input
                 type="date"
                 value={meta.date}
                 onChange={e => setMeta({ ...meta, date: e.target.value })}
-                className="flex-1 bg-transparent text-sm theme-text border-none outline-none"
+                className="flex-1 min-w-0 bg-transparent text-sm theme-text border-none outline-none"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <FileText size={14} className="text-muted shrink-0" />
-              <input
-                type="text"
-                placeholder="Use case summary (one line)"
-                value={meta.useCaseSummary}
-                onChange={e => setMeta({ ...meta, useCaseSummary: e.target.value })}
-                className="flex-1 bg-transparent text-sm theme-text placeholder:text-slate-500 border-none outline-none"
-              />
-            </div>
+          </div>
+          {/* Row 2 — use case summary full width */}
+          <div className="flex items-start gap-2 border-t theme-border pt-2">
+            <FileText size={13} className="text-muted shrink-0 mt-0.5" />
+            <textarea
+              rows={2}
+              placeholder="Use case summary — describe the process being automated, the business problem, and why AI is the right tool. This feeds directly into the AI Verdict prompt."
+              value={meta.useCaseSummary}
+              onChange={e => setMeta({ ...meta, useCaseSummary: e.target.value })}
+              className="flex-1 bg-transparent text-sm theme-text placeholder:text-slate-500 border-none outline-none resize-none leading-relaxed"
+            />
           </div>
         </div>
       </div>

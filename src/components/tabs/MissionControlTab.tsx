@@ -12,7 +12,7 @@ import { GateBadge } from '../ui/GateBadge'
 import type { VerdictResult } from '../../lib/aiVerdict'
 
 interface Props {
-  meta: { customerName: string; date: string; fde: string; useCaseSummary: string }
+  meta: { customerName: string; useCaseName: string; date: string; fde: string; useCaseSummary: string }
   answers: Record<string, string>
   triggeredFlags: string[]
   rubricScores: Record<string, number>
@@ -92,6 +92,7 @@ export function MissionControlTab({ meta, answers, triggeredFlags, rubricScores,
           </div>
           <div className="text-sm font-semibold" style={{ color: healthColor }}>{healthLabel}</div>
           {meta.customerName && <div className="text-xs theme-muted mt-1 truncate max-w-full">{meta.customerName}</div>}
+          {meta.useCaseName && <div className="text-xs text-accent truncate max-w-full font-medium">{meta.useCaseName}</div>}
         </div>
 
         {/* Gate progress */}
