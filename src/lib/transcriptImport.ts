@@ -83,17 +83,21 @@ export async function importTranscript(
         [{ role: 'user', content: prompt }],
         1024,
       )
-      allRaw += `\n--- Batch ${sectionLabels} ---\n${raw}`
+      allRaw += `\n--- Batch ${sectionLabels} ---\n${raw}\n`
 
-      const parsed = extractJSON(raw) as any
-      if (parsed?.answers) {
-        Object.assign(allAnswers, parsed.answers)
+      try {
+        const parsed = extractJSON(raw) as any
+        if (parsed?.answers) {
+          Object.assign(allAnswers, parsed.answers)
+        }
+        if (parsed?.confidence) {
+          Object.assign(allConfidence, parsed.confidence)
+        }
+      } catch {
+        // JSON parse failed — raw response captured for debugging
       }
-      if (parsed?.confidence) {
-        Object.assign(allConfidence, parsed.confidence)
-      }
-    } catch {
-      // Skip failed batch — partial results are fine
+    } catch (err: any) {
+      allRaw += `\n--- Batch ${sectionLabels} ERROR: ${err?.message} ---\n`
     }
   }
 
