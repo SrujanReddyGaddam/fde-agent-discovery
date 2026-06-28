@@ -141,15 +141,40 @@ export default function App() {
     setActiveSessionId(id)
   }
 
-  const handleCreateSession = () => {
+  const handleCreateSession = (nameData?: string) => {
     const s = createSession()
+    if (nameData) {
+      try {
+        const { customer, useCase } = JSON.parse(nameData)
+        if (customer) s.meta.customerName = customer
+        if (useCase) s.meta.useCaseName = useCase
+      } catch {}
+    }
     const next = [...sessions, s]
     saveSessions(next)
     setSessions(next)
     if (folderRef.current) writeSession(folderRef.current, s).catch(() => {})
     setActiveId(s.id)
     setActiveSessionId(s.id)
-    setActiveTab('qualification')
+    setActiveTab('mission')
+  }
+
+  const handleRenameSession = (id: string, customerName: string, useCaseName: string) => {
+    setSessions(prev => {
+      const next = prev.map(s =>
+        s.id === id
+          ? { ...s, meta: { ...s.meta, customerName, useCaseName }, updatedAt: new Date().toISOString() }
+          : s
+      )
+      saveSessions(next)
+      const updated = next.find(s => s.id === id)
+      if (updated && folderRef.current) writeSession(folderRef.current, updated).catch(() => {})
+      return next
+    })
+    // If renaming the active session, sync meta bar too
+    if (id === activeSessionId) {
+      setMeta({ ...activeSession.meta, customerName, useCaseName })
+    }
   }
 
   const handleDuplicateSession = (s: Session) => {
@@ -207,6 +232,7 @@ export default function App() {
                 onCreate={handleCreateSession}
                 onDuplicate={handleDuplicateSession}
                 onDelete={handleDeleteSession}
+                onRename={handleRenameSession}
               />
               {isSupported() && (
                 <FolderStatus
