@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { ClipboardList, Flag, BarChart3, Activity, Sparkles, User, Building2, Calendar, FileText, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Flag, BarChart3, Activity, Sparkles, User, Building2, Calendar, FileText, Sun, Moon } from 'lucide-react'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { useTheme } from './context/ThemeContext'
+import { MissionControlTab } from './components/tabs/MissionControlTab'
 import { QualificationTab } from './components/tabs/QualificationTab'
 import { RedFlagsTab } from './components/tabs/RedFlagsTab'
 import { RubricTab } from './components/tabs/RubricTab'
@@ -12,9 +13,10 @@ import { rubricDimensions, MAX_RUBRIC_SCORE } from './data/rubric'
 import { scorecardDomains } from './data/scorecard'
 import type { VerdictResult } from './lib/aiVerdict'
 
-type Tab = 'qualification' | 'redflags' | 'rubric' | 'scorecard' | 'verdict'
+type Tab = 'mission' | 'qualification' | 'redflags' | 'rubric' | 'scorecard' | 'verdict'
 
 const TABS: { id: Tab; label: string; icon: React.FC<{ size?: number }> }[] = [
+  { id: 'mission', label: 'Mission Control', icon: LayoutDashboard },
   { id: 'qualification', label: 'Discovery', icon: ClipboardList },
   { id: 'redflags', label: 'Red Flags', icon: Flag },
   { id: 'rubric', label: 'Impact Rubric', icon: BarChart3 },
@@ -24,7 +26,7 @@ const TABS: { id: Tab; label: string; icon: React.FC<{ size?: number }> }[] = [
 
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme()
-  const [activeTab, setActiveTab] = useState<Tab>('qualification')
+  const [activeTab, setActiveTab] = useState<Tab>('mission')
   const [answers, setAnswers] = useLocalStorage<Record<string, string>>('fde-answers', {})
   const [triggeredFlags, setTriggeredFlags] = useLocalStorage<string[]>('fde-flags', [])
   const [rubricScores, setRubricScores] = useLocalStorage<Record<string, number>>('fde-rubric', {})
@@ -211,6 +213,16 @@ export default function App() {
 
       {/* Content */}
       <main className="max-w-6xl mx-auto px-6 py-8">
+        {activeTab === 'mission' && (
+          <MissionControlTab
+            meta={meta}
+            answers={answers}
+            triggeredFlags={triggeredFlags}
+            rubricScores={rubricScores}
+            scorecardScores={scorecardScores}
+            verdict={verdict}
+          />
+        )}
         {activeTab === 'qualification' && (
           <QualificationTab answers={answers} setAnswers={setAnswers} />
         )}
