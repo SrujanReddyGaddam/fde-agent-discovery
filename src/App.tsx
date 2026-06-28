@@ -61,6 +61,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('mission')
   const [apiKey, setApiKey] = useLocalStorage<string>('fde-api-key', '')
   const [scriptsOpen, setScriptsOpen] = useLocalStorage<boolean>('fde-scripts-open', true)
+  const [confidence, setConfidence] = useLocalStorage<Record<string, 'high' | 'medium' | 'low' | 'none'>>('fde-confidence', {})
 
   const [sessions, setSessions] = useState<Session[]>(() => initSessions().sessions)
   const [activeSessionId, setActiveSessionId] = useState<string>(() => initSessions().activeId)
@@ -362,7 +363,9 @@ export default function App() {
         )}
         {activeTab === 'qualification' && (
           <QualificationTab answers={answers} setAnswers={setAnswers}
-            scriptsOpen={scriptsOpen} setScriptsOpen={setScriptsOpen} />
+            confidence={confidence} setConfidence={setConfidence}
+            scriptsOpen={scriptsOpen} setScriptsOpen={setScriptsOpen}
+            apiKey={apiKey} />
         )}
         {activeTab === 'redflags' && (
           <RedFlagsTab triggeredFlags={triggeredFlags} setTriggeredFlags={setTriggeredFlags}

@@ -1,17 +1,23 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle, MessageSquare, MessageSquareOff } from 'lucide-react'
+import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle, MessageSquare, MessageSquareOff, FileUp } from 'lucide-react'
 import { sections } from '../../data/inquiryGuide'
 import { ScriptToggle } from '../ui/ScriptToggle'
+import { TranscriptImportModal } from '../ui/TranscriptImportModal'
 
 interface Props {
   answers: Record<string, string>
   setAnswers: (answers: Record<string, string>) => void
+  confidence: Record<string, 'high' | 'medium' | 'low' | 'none'>
+  setConfidence: (c: Record<string, 'high' | 'medium' | 'low' | 'none'>) => void
   scriptsOpen: boolean
   setScriptsOpen: (v: boolean) => void
+  apiKey: string
 }
 
-export function QualificationTab({ answers, setAnswers, scriptsOpen, setScriptsOpen }: Props) {
+export function QualificationTab({ answers, setAnswers, confidence, setConfidence, scriptsOpen, setScriptsOpen, apiKey }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ A: true })
+
+  const [showImport, setShowImport] = useState(false)
 
   const toggleSection = (id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }))
@@ -30,12 +36,31 @@ export function QualificationTab({ answers, setAnswers, scriptsOpen, setScriptsO
 
   return (
     <div className="space-y-3">
+      {showImport && (
+        <TranscriptImportModal
+          apiKey={apiKey}
+          existingAnswers={answers}
+          onImport={(merged, conf) => { setAnswers(merged); setConfidence(conf) }}
+          onClose={() => setShowImport(false)}
+        />
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold theme-text">Discovery Questionnaire</h2>
           <p className="text-sm text-muted mt-1">Sections A–J from the FDE Use Case Inquiry Guide. Click each section to expand.</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          {/* Import transcript */}
+          <button
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-accent/40 bg-accent/10 text-accent hover:bg-accent/20 text-xs font-medium transition-all"
+            title="Import a meeting transcript and auto-populate questions"
+          >
+            <FileUp size={13} />
+            Import Transcript
+          </button>
+
           {/* Global script toggle */}
           <button
             onClick={() => setScriptsOpen(!scriptsOpen)}
@@ -94,14 +119,26 @@ export function QualificationTab({ answers, setAnswers, scriptsOpen, setScriptsO
               <div className="px-5 pb-5 pt-3 space-y-6 theme-surface border-t theme-border">
                 <p className="text-xs text-muted italic">{section.goal}</p>
 
-                {section.questions.map(q => (
-                  <div key={q.id} className="space-y-2">
+                {section.questions.map(q => {
+                  const conf = confidence[q.id]
+                  const confBorder = conf === 'high' ? 'border-l-2 border-l-go pl-3' : conf === 'medium' ? 'border-l-2 border-l-caution pl-3' : conf === 'low' ? 'border-l-2 border-l-orange-400 pl-3' : ''
+                  return (
+                  <div key={q.id} className={`space-y-2 ${confBorder}`}>
                     <div className="flex items-start gap-2">
                       <span className="font-mono text-xs text-accent mt-0.5 shrink-0">{q.id}</span>
                       <div className="flex-1">
-                        <label className="block text-sm font-medium theme-text leading-snug">
-                          {q.question}
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="block text-sm font-medium theme-text leading-snug">
+                            {q.question}
+                          </label>
+                          {conf && conf !== 'none' && (
+                            <span className={`text-xs font-mono ml-2 shrink-0 ${
+                              conf === 'high' ? 'text-go' : conf === 'medium' ? 'text-caution' : 'text-orange-400'
+                            }`}>
+                              AI · {conf}
+                            </span>
+                          )}
+                        </div>
 
                         {/* Metadata row */}
                         <div className="flex flex-wrap gap-3 mt-1.5">
@@ -127,7 +164,7 @@ export function QualificationTab({ answers, setAnswers, scriptsOpen, setScriptsO
                       </div>
                     </div>
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </div>
