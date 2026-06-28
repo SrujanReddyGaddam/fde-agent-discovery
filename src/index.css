@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+/* ── Dark theme (default) ── */
+:root, .dark {
+  --bg-base:    #0A0E1A;
+  --bg-surface: #0f1623;
+  --bg-panel:   #141d2e;
+  --bg-input:   #0d1320;
+  --border:     #1e2d45;
+  --border-dim: rgba(30,45,69,0.5);
+  --text:       #e2e8f0;
+  --text-muted: #6b7280;
+  --text-dim:   #94a3b8;
+  --script-bg:  #0d1a2d;
+  --script-text:#bfdbfe;
+  --script-border: rgba(59,130,246,0.2);
+  --tab-hover:  #1a2235;
+  --header-bg:  rgba(15,22,35,0.85);
+  --meta-bg:    rgba(20,29,46,0.5);
+  --color-scheme: dark;
+}
+
+/* ── Light theme ── */
+.light {
+  --bg-base:    #f0f4f8;
+  --bg-surface: #ffffff;
+  --bg-panel:   #ffffff;
+  --bg-input:   #f8fafc;
+  --border:     #94a3b8;
+  --border-dim: rgba(148,163,184,0.4);
+  --text:       #0f172a;
+  --text-muted: #334155;
+  --text-dim:   #1e293b;
+  --script-bg:  #dbeafe;
+  --script-text:#1e3a8a;
+  --script-border: rgba(59,130,246,0.5);
+  --tab-hover:  #e2e8f0;
+  --header-bg:  rgba(255,255,255,0.95);
+  --meta-bg:    rgba(226,232,240,0.6);
+  --color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-base);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+#root { width: 100%; min-height: 100vh; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3B82F6; }
+
+textarea, input { outline: none; color-scheme: var(--color-scheme); }
+
+/* Theme-aware utility classes */
+.theme-base    { background-color: var(--bg-base) !important; }
+.theme-surface { background-color: var(--bg-surface) !important; }
+.theme-panel   { background-color: var(--bg-panel) !important; }
+.theme-input   { background-color: var(--bg-input) !important; }
+.theme-border  { border-color: var(--border) !important; }
+.theme-text    { color: var(--text) !important; }
+.theme-muted   { color: var(--text-muted) !important; }
+.theme-dim     { color: var(--text-dim) !important; }
+.theme-script  {
+  background-color: var(--script-bg) !important;
+  color: var(--script-text) !important;
+  border-color: var(--script-border) !important;
+}
+.theme-tab-hover:hover { background-color: var(--tab-hover) !important; }
+.theme-header { background-color: var(--header-bg) !important; }
+.theme-meta   { background-color: var(--meta-bg) !important; }
+
+/* Override Tailwind's fixed-color classes to be theme-aware */
+/* These apply inside .light so they override dark defaults */
+.light .text-white        { color: #0f172a !important; }
+.light .text-slate-200    { color: #1e293b !important; }
+.light .text-slate-300    { color: #334155 !important; }
+.light .text-slate-400    { color: #475569 !important; }
+.light .text-slate-500    { color: #64748b !important; }
+.light .text-slate-600    { color: #64748b !important; }
+.light .text-muted        { color: #334155 !important; }
+.light .placeholder\:text-slate-400::placeholder { color: #94a3b8 !important; }
+.light .placeholder\:text-slate-500::placeholder { color: #94a3b8 !important; }
+.light .placeholder\:text-slate-600::placeholder { color: #94a3b8 !important; }
+
+/* Section / card backgrounds */
+.light .bg-surface  { background-color: #ffffff !important; }
+.light .bg-panel    { background-color: #ffffff !important; }
+.light .border-border { border-color: #94a3b8 !important; }
+
+/* Progress bar empty track */
+.light .bg-border { background-color: #94a3b8 !important; }
+
+/* Input focus ring */
+.light textarea:focus, .light input:focus {
+  border-color: #3B82F6 !important;
+}
+
+/* Scrollbar for light */
+.light ::-webkit-scrollbar-track { background: #f0f4f8; }
+.light ::-webkit-scrollbar-thumb { background: #94a3b8; }
