@@ -33,6 +33,7 @@ export default function App() {
   const [scorecardScores, setScorecardScores] = useLocalStorage<Record<string, number>>('fde-scorecard', {})
   const [scorecardNotes, setScorecardNotes] = useLocalStorage<Record<string, string>>('fde-scorecard-notes', {})
   const [apiKey, setApiKey] = useLocalStorage<string>('fde-api-key', '')
+  const [scriptsOpen, setScriptsOpen] = useLocalStorage<boolean>('fde-scripts-open', true)
   const [verdict, setVerdict] = useLocalStorage<VerdictResult | null>('fde-verdict', null)
   type MetaType = { customerName: string; useCaseName: string; date: string; fde: string; useCaseSummary: string }
   const [meta, setMeta] = useLocalStorage<MetaType>(
@@ -237,7 +238,7 @@ export default function App() {
           />
         )}
         {activeTab === 'qualification' && (
-          <QualificationTab answers={answers} setAnswers={setAnswers} />
+          <QualificationTab answers={answers} setAnswers={setAnswers} scriptsOpen={scriptsOpen} setScriptsOpen={setScriptsOpen} />
         )}
         {activeTab === 'redflags' && (
           <RedFlagsTab triggeredFlags={triggeredFlags} setTriggeredFlags={setTriggeredFlags} />

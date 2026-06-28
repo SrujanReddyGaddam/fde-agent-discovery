@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react'
+import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle, MessageSquare, MessageSquareOff } from 'lucide-react'
 import { sections } from '../../data/inquiryGuide'
 import { ScriptToggle } from '../ui/ScriptToggle'
 
 interface Props {
   answers: Record<string, string>
   setAnswers: (answers: Record<string, string>) => void
+  scriptsOpen: boolean
+  setScriptsOpen: (v: boolean) => void
 }
 
-export function QualificationTab({ answers, setAnswers }: Props) {
+export function QualificationTab({ answers, setAnswers, scriptsOpen, setScriptsOpen }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ A: true })
 
   const toggleSection = (id: string) => {
@@ -33,14 +35,30 @@ export function QualificationTab({ answers, setAnswers }: Props) {
           <h2 className="text-xl font-semibold theme-text">Discovery Questionnaire</h2>
           <p className="text-sm text-muted mt-1">Sections A–J from the FDE Use Case Inquiry Guide. Click each section to expand.</p>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-mono font-bold text-accent">
-            {sections.reduce((sum, s) => sum + s.questions.filter(q => answers[q.id]?.trim()).length, 0)}
-            <span className="text-muted text-base font-normal">
-              /{sections.reduce((sum, s) => sum + s.questions.length, 0)}
-            </span>
+        <div className="flex items-center gap-4">
+          {/* Global script toggle */}
+          <button
+            onClick={() => setScriptsOpen(!scriptsOpen)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+              scriptsOpen
+                ? 'bg-accent/10 border-accent/40 text-accent'
+                : 'theme-panel border-border theme-muted hover:border-slate-400'
+            }`}
+            title={scriptsOpen ? 'Hide all conversational scripts' : 'Show all conversational scripts'}
+          >
+            {scriptsOpen ? <MessageSquare size={13} /> : <MessageSquareOff size={13} />}
+            {scriptsOpen ? 'Scripts On' : 'Scripts Off'}
+          </button>
+
+          <div className="text-right">
+            <div className="text-2xl font-mono font-bold text-accent">
+              {sections.reduce((sum, s) => sum + s.questions.filter(q => answers[q.id]?.trim()).length, 0)}
+              <span className="text-muted text-base font-normal">
+                /{sections.reduce((sum, s) => sum + s.questions.length, 0)}
+              </span>
+            </div>
+            <div className="text-xs text-muted">questions answered</div>
           </div>
-          <div className="text-xs text-muted">questions answered</div>
         </div>
       </div>
 
@@ -97,7 +115,7 @@ export function QualificationTab({ answers, setAnswers }: Props) {
                           <span className="theme-muted italic">{q.redFlag}</span>
                         </div>
 
-                        <ScriptToggle script={q.script} />
+                        <ScriptToggle script={q.script} open={scriptsOpen} />
 
                         <textarea
                           rows={3}
