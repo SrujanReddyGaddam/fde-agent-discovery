@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { Upload, FileText, X, Loader2, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
-import { importTranscript, type ImportResult } from '../../lib/transcriptImport'
+import { importTranscript, type ImportResult, type ImportProgress } from '../../lib/transcriptImport'
 import type { LLMConfig } from '../../lib/llmClient'
 
 interface Props {
@@ -28,6 +28,7 @@ export function TranscriptImportModal({ llmConfig, existingAnswers, onImport, on
   const [dragging, setDragging] = useState(false)
   const [mergeMode, setMergeMode] = useState<'overwrite' | 'append' | 'skip'>('skip')
   const [showRaw, setShowRaw] = useState(false)
+  const [progress, setProgress] = useState<ImportProgress | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleFile = (file: File) => {
@@ -48,8 +49,9 @@ export function TranscriptImportModal({ llmConfig, existingAnswers, onImport, on
     if (!transcript.trim()) return
     setStep('processing')
     setError('')
+    setProgress(null)
     try {
-      const res = await importTranscript(llmConfig, transcript)
+      const res = await importTranscript(llmConfig, transcript, (p) => setProgress(p))
       setResult(res)
       setStep('review')
     } catch (e: any) {
@@ -172,11 +174,26 @@ export function TranscriptImportModal({ llmConfig, existingAnswers, onImport, on
 
           {/* Step: processing */}
           {step === 'processing' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <div className="flex flex-col items-center justify-center py-12 gap-5">
               <Loader2 size={36} className="text-accent animate-spin" />
-              <div className="text-center">
-                <p className="font-semibold theme-text">Analyzing transcript...</p>
-                <p className="text-sm theme-muted mt-1">Claude is reading your notes and mapping them to the 50+ discovery questions</p>
+              <div className="text-center w-full max-w-sm">
+                <p className="font-semibold theme-text">Analysing transcript...</p>
+                <p className="text-sm theme-muted mt-1 mb-4">
+                  Processing in batches — smaller prompts work better with local models
+                </p>
+                {progress && (
+                  <>
+                    <div className="h-2 theme-surface rounded-full overflow-hidden mb-2">
+                      <div
+                        className="h-full bg-accent rounded-full transition-all duration-500"
+                        style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-accent font-mono">
+                      {progress.current}/{progress.total} — {progress.label}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           )}
