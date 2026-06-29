@@ -1,14 +1,16 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip,
 } from 'recharts'
-import { CheckCircle2, XCircle, HelpCircle, Lock, AlertTriangle, TrendingUp } from 'lucide-react'
+import { CheckCircle2, XCircle, HelpCircle, Lock, AlertTriangle, TrendingUp, Sparkles, Loader2, ClipboardList, Eye, EyeOff } from 'lucide-react'
 import { evaluateGates, getGateSummary } from '../../lib/gateEvaluator'
 import { scorecardDomains } from '../../data/scorecard'
 import { rubricDimensions, MAX_RUBRIC_SCORE } from '../../data/rubric'
 import { redFlags } from '../../data/redFlags'
 import { GateBadge } from '../ui/GateBadge'
+import { generatePreCallPrep, type PreCallPrep } from '../../lib/aiPreCallPrep'
+import type { LLMConfig } from '../../lib/llmClient'
 import type { VerdictResult } from '../../lib/aiVerdict'
 
 interface Props {
@@ -18,6 +20,7 @@ interface Props {
   rubricScores: Record<string, number>
   scorecardScores: Record<string, number>
   verdict: VerdictResult | null
+  llmConfig: LLMConfig
 }
 
 const STATUS_CONFIG = {
@@ -37,7 +40,34 @@ function getTier(score: number) {
   return { label: 'Elite', color: '#3B82F6' }
 }
 
-export function MissionControlTab({ meta, answers, triggeredFlags, rubricScores, scorecardScores, verdict }: Props) {
+export function MissionControlTab({ meta, answers, triggeredFlags, rubricScores, scorecardScores, verdict, llmConfig }: Props) {
+  const [prepLoading, setPrepLoading] = useState(false)
+  const [prep, setPrep] = useState<PreCallPrep | null>(null)
+  const [prepError, setPrepError] = useState('')
+  const [showScripts, setShowScripts] = useState<Record<number, boolean>>({})
+
+  const isConfigured = llmConfig.provider === 'anthropic'
+    ? !!llmConfig.anthropicKey
+    : !!llmConfig.localBaseUrl
+
+  const runPreCallPrep = async () => {
+    setPrepLoading(true)
+    setPrepError('')
+    try {
+      const result = await generatePreCallPrep(
+        llmConfig,
+        meta.customerName,
+        meta.useCaseName,
+        meta.useCaseSummary,
+      )
+      setPrep(result)
+    } catch (e: any) {
+      setPrepError(e.message || 'Pre-call prep failed')
+    } finally {
+      setPrepLoading(false)
+    }
+  }
+
   const gateResults = useMemo(
     () => evaluateGates(answers, triggeredFlags, rubricScores),
     [answers, triggeredFlags, rubricScores]
@@ -349,6 +379,110 @@ export function MissionControlTab({ meta, answers, triggeredFlags, rubricScores,
           </div>
         </div>
       </div>
+
+      {/* ── Pre-call Prep ── */}
+      {isConfigured && (
+        <div className="theme-panel border theme-border rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b theme-border">
+            <div className="flex items-center gap-2">
+              <ClipboardList size={16} className="text-accent" />
+              <div>
+                <h3 className="font-semibold theme-text">Pre-Call Prep</h3>
+                <p className="text-xs theme-muted mt-0.5">
+                  AI generates your top 8–10 questions tailored to this specific use case
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={runPreCallPrep}
+              disabled={prepLoading || !meta.useCaseSummary}
+              className="flex items-center gap-2 text-xs font-semibold text-accent bg-accent/10 hover:bg-accent/20 border border-accent/30 px-3 py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title={!meta.useCaseSummary ? 'Fill in the use case summary in the meta bar first' : ''}
+            >
+              {prepLoading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              {prepLoading ? 'Generating...' : prep ? 'Regenerate' : 'Generate Prep List'}
+            </button>
+          </div>
+
+          {!meta.useCaseSummary && !prep && (
+            <div className="px-5 py-4 text-xs theme-muted italic">
+              Add a use case summary in the meta bar above to generate a tailored prep list.
+            </div>
+          )}
+
+          {prepError && (
+            <div className="px-5 py-3 text-xs text-stop">{prepError}</div>
+          )}
+
+          {prep && (
+            <div className="px-5 py-4 space-y-4">
+              {prep.summary && (
+                <div className="p-3 bg-accent/5 border border-accent/20 rounded-lg text-sm theme-dim italic">
+                  {prep.summary}
+                </div>
+              )}
+
+              {/* Watch for */}
+              {prep.watchFor.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold theme-muted uppercase tracking-wider mb-2">Watch For in This Call</div>
+                  <div className="space-y-1">
+                    {prep.watchFor.map((w, i) => (
+                      <div key={i} className="flex gap-2 text-sm">
+                        <span className="text-caution shrink-0">⚠</span>
+                        <span className="theme-dim">{w}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Questions */}
+              <div>
+                <div className="text-xs font-semibold theme-muted uppercase tracking-wider mb-2">
+                  Priority Questions — {prep.questions.length} selected
+                </div>
+                <div className="space-y-2">
+                  {prep.questions.map((q, i) => {
+                    const priorityColor = q.priority === 'critical' ? 'text-stop border-stop/30 bg-stop/5'
+                      : q.priority === 'high' ? 'text-caution border-caution/30 bg-caution/5'
+                      : 'text-accent border-accent/20 bg-accent/5'
+                    const isScriptOpen = showScripts[i]
+                    return (
+                      <div key={i} className={`border rounded-xl p-3 ${priorityColor}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-mono font-bold opacity-70">{q.id}</span>
+                              <span className={`text-xs font-mono uppercase ${priorityColor.split(' ')[0]}`}>
+                                {q.priority}
+                              </span>
+                            </div>
+                            <p className="text-sm font-medium theme-text">{q.question}</p>
+                            <p className="text-xs theme-muted mt-1">{q.why}</p>
+                          </div>
+                          <button
+                            onClick={() => setShowScripts(prev => ({ ...prev, [i]: !prev[i] }))}
+                            className="shrink-0 p-1 theme-muted hover:text-accent transition-colors"
+                            title="Toggle script"
+                          >
+                            {isScriptOpen ? <EyeOff size={13} /> : <Eye size={13} />}
+                          </button>
+                        </div>
+                        {isScriptOpen && q.script && (
+                          <div className="mt-2 p-2.5 bg-accent/10 border border-accent/20 rounded-lg text-xs text-blue-300 italic leading-relaxed">
+                            {q.script}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

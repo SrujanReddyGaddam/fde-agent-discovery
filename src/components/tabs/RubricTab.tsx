@@ -1,10 +1,15 @@
-import { Info } from 'lucide-react'
+import { useState } from 'react'
+import { Info, Sparkles, Loader2, Check, X } from 'lucide-react'
 import { rubricDimensions, MAX_RUBRIC_SCORE } from '../../data/rubric'
 import type { RubricDimension } from '../../data/rubric'
+import { suggestRubricScores, type RubricSuggestion } from '../../lib/aiRubricScore'
+import type { LLMConfig } from '../../lib/llmClient'
 
 interface Props {
   scores: Record<string, number>
   setScores: (scores: Record<string, number>) => void
+  answers: Record<string, string>
+  llmConfig: LLMConfig
 }
 
 // For opportunity dims: 1=weak,3=ok,5=strong → green at 5
@@ -64,9 +69,41 @@ function getGateVerdict(pct: number): { label: string; color: string; bg: string
   }
 }
 
-export function RubricTab({ scores, setScores }: Props) {
+export function RubricTab({ scores, setScores, answers, llmConfig }: Props) {
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
+  const [suggestion, setSuggestion] = useState<RubricSuggestion | null>(null)
+  const [applied, setApplied] = useState(false)
+
   const setScore = (id: string, value: number) => {
     setScores({ ...scores, [id]: value })
+  }
+
+  const isConfigured = llmConfig.provider === 'anthropic'
+    ? !!llmConfig.anthropicKey
+    : !!llmConfig.localBaseUrl
+
+  const runAiScore = async () => {
+    const hasAnswers = Object.values(answers).some(v => v?.trim().length > 5)
+    if (!hasAnswers) { setAiError('Fill in some Discovery notes first.'); return }
+    setAiLoading(true)
+    setAiError('')
+    setSuggestion(null)
+    setApplied(false)
+    try {
+      const result = await suggestRubricScores(llmConfig, answers)
+      setSuggestion(result)
+    } catch (e: any) {
+      setAiError(e.message || 'AI scoring failed')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const applyAll = () => {
+    if (!suggestion) return
+    setScores({ ...scores, ...suggestion.scores })
+    setApplied(true)
   }
 
   const total = rubricDimensions.reduce((sum, d) => sum + (scores[d.id] || 0) * d.weight, 0)
@@ -91,6 +128,17 @@ export function RubricTab({ scores, setScores }: Props) {
                 <span className="text-caution ml-1">({rubricDimensions.length - scoredCount} unscored)</span>
               )}
             </p>
+            {isConfigured && (
+              <button
+                onClick={runAiScore}
+                disabled={aiLoading}
+                className="mt-3 flex items-center gap-2 text-xs font-semibold text-accent bg-accent/10 hover:bg-accent/20 border border-accent/30 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                {aiLoading ? 'Scoring from notes...' : 'AI Score from Discovery Notes'}
+              </button>
+            )}
+            {aiError && <p className="text-xs text-stop mt-2">{aiError}</p>}
           </div>
 
           {/* Verdict pill + score */}
@@ -104,6 +152,62 @@ export function RubricTab({ scores, setScores }: Props) {
             </div>
           </div>
         </div>
+
+        {/* AI suggestion panel */}
+        {suggestion && !applied && (
+          <div className="mb-4 p-4 bg-accent/5 border border-accent/30 rounded-xl">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-accent" />
+                <span className="text-sm font-semibold text-accent">AI suggested scores from your discovery notes</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={applyAll}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-go bg-go/10 hover:bg-go/20 border border-go/30 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <Check size={11} /> Apply All
+                </button>
+                <button onClick={() => setSuggestion(null)} className="p-1.5 theme-muted hover:text-stop transition-colors">
+                  <X size={13} />
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {rubricDimensions.map(d => {
+                const suggested = suggestion.scores[d.id]
+                const reason = suggestion.reasoning[d.id]
+                const current = scores[d.id] || 0
+                if (!suggested) return null
+                return (
+                  <div key={d.id} className="bg-accent/5 border border-accent/20 rounded-lg p-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium theme-text">{d.label}</span>
+                      <div className="flex items-center gap-1">
+                        {current > 0 && current !== suggested && (
+                          <span className="text-xs theme-muted line-through">{current}</span>
+                        )}
+                        <span className="text-xs font-mono font-bold text-accent">{suggested}/5</span>
+                      </div>
+                    </div>
+                    {reason && <p className="text-xs theme-muted leading-snug">{reason}</p>}
+                    <button
+                      onClick={() => setScore(d.id, suggested)}
+                      className="mt-1.5 text-xs text-accent hover:underline"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {suggestion && applied && (
+          <div className="mb-4 flex items-center gap-2 p-3 bg-go/10 border border-go/30 rounded-xl text-sm text-go">
+            <Check size={14} /> AI scores applied — review and adjust each dimension below
+          </div>
+        )}
 
         {/* Visual segment bar — one block per dimension */}
         <div className="mb-3">

@@ -365,7 +365,8 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-6 py-8">
         {activeTab === 'mission' && (
           <MissionControlTab meta={meta} answers={answers} triggeredFlags={triggeredFlags}
-            rubricScores={rubricScores} scorecardScores={scorecardScores} verdict={verdict} />
+            rubricScores={rubricScores} scorecardScores={scorecardScores} verdict={verdict}
+            llmConfig={llmConfig} />
         )}
         {activeTab === 'qualification' && (
           <QualificationTab answers={answers} setAnswers={setAnswers}
@@ -378,11 +379,12 @@ export default function App() {
             answers={answers} llmConfig={llmConfig} />
         )}
         {activeTab === 'rubric' && (
-          <RubricTab scores={rubricScores} setScores={setRubricScores} />
+          <RubricTab scores={rubricScores} setScores={setRubricScores}
+            answers={answers} llmConfig={llmConfig} />
         )}
         {activeTab === 'scorecard' && (
           <ScorecardTab scores={scorecardScores} setScores={setScorecardScores}
-            notes={scorecardNotes} setNotes={setScorecardNotes} />
+            notes={scorecardNotes} setNotes={setScorecardNotes} llmConfig={llmConfig} />
         )}
         {activeTab === 'verdict' && (
           <VerdictTab meta={meta} answers={answers} triggeredFlags={triggeredFlags}

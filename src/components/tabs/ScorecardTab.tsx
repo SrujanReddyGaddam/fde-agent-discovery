@@ -1,17 +1,45 @@
+import { useState } from 'react'
+import { Sparkles, Loader2, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react'
 import { scorecardDomains } from '../../data/scorecard'
 import { TierBadge } from '../ui/TierBadge'
+import { generateGapAnalysis, type GapAnalysis } from '../../lib/aiGapAnalysis'
+import type { LLMConfig } from '../../lib/llmClient'
 
 interface Props {
   scores: Record<string, number>
   setScores: (scores: Record<string, number>) => void
   notes: Record<string, string>
   setNotes: (notes: Record<string, string>) => void
+  llmConfig: LLMConfig
 }
 
 const DOMAIN_COLORS = ['text-blue-400', 'text-purple-400', 'text-emerald-400', 'text-orange-400']
 const DOMAIN_BORDERS = ['border-blue-500/30', 'border-purple-500/30', 'border-emerald-500/30', 'border-orange-500/30']
 
-export function ScorecardTab({ scores, setScores, notes, setNotes }: Props) {
+export function ScorecardTab({ scores, setScores, notes, setNotes, llmConfig }: Props) {
+  const [gapLoading, setGapLoading] = useState<string | null>(null)
+  const [gapResults, setGapResults] = useState<Record<string, GapAnalysis>>({})
+  const [gapOpen, setGapOpen] = useState<Record<string, boolean>>({})
+
+  const isConfigured = llmConfig.provider === 'anthropic'
+    ? !!llmConfig.anthropicKey
+    : !!llmConfig.localBaseUrl
+
+  const runGapAnalysis = async (domainId: string) => {
+    const score = scores[domainId] || 0
+    if (score === 0) return
+    setGapLoading(domainId)
+    try {
+      const result = await generateGapAnalysis(llmConfig, domainId, score, notes[domainId] || '')
+      setGapResults(prev => ({ ...prev, [domainId]: result }))
+      setGapOpen(prev => ({ ...prev, [domainId]: true }))
+    } catch (e: any) {
+      // fail silently — gap panel just won't appear
+    } finally {
+      setGapLoading(null)
+    }
+  }
+
   const setScore = (id: string, value: number) => {
     setScores({ ...scores, [id]: Math.max(0, Math.min(25, value)) })
   }
@@ -153,6 +181,54 @@ export function ScorecardTab({ scores, setScores, notes, setNotes }: Props) {
                     className="w-full theme-input theme-text border theme-border rounded-lg px-3 py-2 text-sm placeholder:text-slate-400 resize-none focus:border-accent/60 transition-colors"
                   />
                 </div>
+
+                {/* Gap analysis */}
+                {isConfigured && score > 0 && score < 21 && (
+                  <div>
+                    <button
+                      onClick={() => gapResults[domain.id]
+                        ? setGapOpen(prev => ({ ...prev, [domain.id]: !prev[domain.id] }))
+                        : runGapAnalysis(domain.id)
+                      }
+                      disabled={gapLoading === domain.id}
+                      className="flex items-center gap-1.5 text-xs text-accent hover:text-blue-300 transition-colors disabled:opacity-50"
+                    >
+                      {gapLoading === domain.id
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : <Sparkles size={12} />
+                      }
+                      {gapLoading === domain.id
+                        ? 'Analysing gap...'
+                        : gapResults[domain.id]
+                        ? (gapOpen[domain.id] ? 'Hide gap analysis' : 'Show gap analysis')
+                        : 'What moves this to the next tier?'
+                      }
+                      {gapResults[domain.id] && (
+                        gapOpen[domain.id] ? <ChevronUp size={11} /> : <ChevronDown size={11} />
+                      )}
+                    </button>
+
+                    {gapResults[domain.id] && gapOpen[domain.id] && (
+                      <div className="mt-3 p-4 bg-accent/5 border border-accent/20 rounded-xl space-y-3">
+                        <div className="flex items-center gap-2 text-xs font-semibold theme-muted">
+                          <span className="text-stop">{gapResults[domain.id].currentTier}</span>
+                          <ArrowRight size={12} />
+                          <span className="text-go">{gapResults[domain.id].targetTier}</span>
+                          <span className="ml-auto text-accent">{gapResults[domain.id].timeframe}</span>
+                        </div>
+                        {gapResults[domain.id].actions.map((action, ai) => (
+                          <div key={ai} className="flex gap-2.5">
+                            <span className="font-mono text-xs text-accent shrink-0 mt-0.5">{ai + 1}.</span>
+                            <div>
+                              <div className="text-sm font-semibold theme-text">{action.title}</div>
+                              <div className="text-xs theme-muted mt-0.5 leading-relaxed">{action.detail}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )
